@@ -49,7 +49,8 @@ Return a JSON object with these fields:
     - gross_amount: (number: total including VAT for this rate)
 
 RULES:
-- Turkish VAT rates are strictly: 1, 10, or 20.
+- Turkish VAT rates are strictly: 1, 10, or 20. 
+- IMPORTANT: Never use 8% or 18%. These are obsolete. If the receipt looks like 8 or 18, use 10 or 20 respectively.
 - GROUP BY RATE: You MUST produce only ONE object per VAT rate. If there are multiple 10% items, sum them up.
 - DO NOT CALCULATE: Extract and sum the numbers as written.
 - If the receipt has a "KDV DAĞILIMI" section, use those summarized values.

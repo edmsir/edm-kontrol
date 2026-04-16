@@ -146,7 +146,8 @@ export const handler = async (event) => {
       r.eachCell((cell, col) => {
         cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
         if (col > 1 && col !== 3) cell.numFmt = '#,##0.00';
-        cell.alignment = { horizontal: col === 1 ? 'left' : 'right' };
+        if (col === 3) cell.alignment = { horizontal: 'center' };
+        else cell.alignment = { horizontal: col === 1 ? 'left' : 'right' };
       });
       currentRowIdx++;
     });
@@ -156,7 +157,7 @@ export const handler = async (event) => {
     summaryTotalRow.getCell(1).value = 'Genel Toplam';
     summaryTotalRow.getCell(1).font = { bold: true };
     summaryTotalRow.getCell(2).value = totalMatrah;
-    summaryTotalRow.getCell(3).value = `%${(results.length > 0 ? results.reduce((a,b)=>a+(parseInt(b.kdv_rate)||0),0)/results.length : 0).toFixed(0)}`;
+    summaryTotalRow.getCell(3).value = ''; // KDV Ortalama alanını boş bırakıyoruz
     summaryTotalRow.getCell(4).value = totalKdv;
 
     [1, 2, 3, 4].forEach(col => {
