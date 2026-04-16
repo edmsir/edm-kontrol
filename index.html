@@ -59,11 +59,21 @@
             <div id="loading-overlay"><div class="spinner"></div><p>Analiz Ediliyor...</p></div>
             <video id="video-feed" autoplay playsinline></video>
         </div>
-        <div class="panel" id="folder-panel" style="display:none;">
-            <img id="image-viewer" src="" style="display:none;">
-            <div id="folder-empty">
-                <button class="btn" style="background:#eee; margin: auto;" onclick="selectFolder()">📂 KLASÖR SEÇ</button>
+        <div class="panel" id="folder-panel" style="display:none; background: #1e293b; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+            <div id="loading-overlay-folder" style="position: absolute; inset: 0; background: rgba(0,0,0,0.7); z-index: 10; display: none; flex-direction: column; align-items: center; justify-content: center;">
+                <div class="spinner" style="border-color: #fff; border-bottom-color: transparent;"></div>
+                <p>Analiz Ediliyor...</p>
             </div>
+            <img id="image-viewer" src="" style="max-width: 100%; max-height: 100%; object-fit: contain; display: none;">
+            <div id="folder-empty">
+                <p style="margin-bottom: 1rem; color: #94a3b8;">Henüz resim seçilmedi</p>
+                <button class="btn" style="background: var(--primary); color: white; margin: auto; width: auto; padding: 10px 20px;" onclick="document.getElementById('file-input').click()">📂 RESİMLERİ SEÇ</button>
+            </div>
+            <input type="file" id="file-input" multiple accept="image/*" style="display:none;" onchange="handleFiles(this.files)">
+        </div>
+        <div id="folder-controls" style="display:none; margin-top: 10px;">
+            <div id="file-queue" style="display: flex; gap: 10px; overflow-x: auto; padding: 10px; background: #fff; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 10px;"></div>
+            <button class="btn btn-primary" id="process-folder-btn" style="padding: 20px;" onclick="processSelectedFile()" disabled>🔍 SEÇİLİ RESMİ ANALİZ ET</button>
         </div>
         <div id="camera-controls">
             <button class="btn btn-primary" style="padding: 20px;" onclick="captureImage()">📸 FİŞİ TARA</button>
@@ -119,19 +129,88 @@
     function switchMode(mode) {
         currentMode = mode;
         document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-        event.target.classList.add('active');
+        if (event) event.target.classList.add('active');
+        
         if(mode === 'camera') {
             document.getElementById('camera-panel').style.display = 'block';
             document.getElementById('folder-panel').style.display = 'none';
             document.getElementById('camera-controls').style.display = 'block';
+            document.getElementById('folder-controls').style.display = 'none';
+            initCamera();
         } else {
             document.getElementById('camera-panel').style.display = 'none';
-            document.getElementById('folder-panel').style.display = 'block';
+            document.getElementById('folder-panel').style.display = 'flex';
             document.getElementById('camera-controls').style.display = 'none';
+            document.getElementById('folder-controls').style.display = 'block';
+            // Stop camera stream if any
+            if (video.srcObject) {
+                video.srcObject.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+            }
         }
     }
 
-    async function selectFolder() { alert('Klasör modu Netlify üzerinde kısıtlıdır, lütfen Kamera modunu kullanın.'); }
+    let fileQueue = [];
+    let selectedFileIndex = -1;
+
+    function handleFiles(files) {
+        fileQueue = Array.from(files);
+        renderFileQueue();
+        if (fileQueue.length > 0) {
+            selectFile(0);
+        }
+    }
+
+    function renderFileQueue() {
+        const queueEl = document.getElementById('file-queue');
+        queueEl.innerHTML = "";
+        fileQueue.forEach((file, idx) => {
+            const thumb = document.createElement('div');
+            thumb.style.cssText = `min-width: 60px; height: 60px; background: #eee; border-radius: 8px; cursor: pointer; border: 2px solid ${idx === selectedFileIndex ? 'var(--primary)' : 'transparent'}; background-size: cover; background-position: center;`;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => thumb.style.backgroundImage = `url(${e.target.result})`;
+            reader.readAsDataURL(file);
+            
+            thumb.onclick = () => selectFile(idx);
+            queueEl.appendChild(thumb);
+        });
+        document.getElementById('folder-empty').style.display = fileQueue.length > 0 ? 'none' : 'block';
+        document.getElementById('image-viewer').style.display = fileQueue.length > 0 ? 'block' : 'none';
+        document.getElementById('process-folder-btn').disabled = fileQueue.length === 0;
+    }
+
+    function selectFile(index) {
+        selectedFileIndex = index;
+        const file = fileQueue[index];
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            document.getElementById('image-viewer').src = e.target.result;
+            renderFileQueue();
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function processSelectedFile() {
+        if (selectedFileIndex === -1) return;
+        const img = document.getElementById('image-viewer').src;
+        document.getElementById('loading-overlay-folder').style.display = 'flex';
+        try {
+            const res = await fetch(`${apiBase}/process_image`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ image: img })
+            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            populateForm(data);
+            // Bir sonrakine otomatik geçme isteğe bağlı, şimdilik kalsın.
+        } catch(e) { 
+            alert("Hata: " + e.message);
+            console.error(e); 
+        }
+        document.getElementById('loading-overlay-folder').style.display = 'none';
+    }
 
     let currentMode = 'camera';
     let confirmedData = JSON.parse(localStorage.getItem('slipx_data') || '[]');
