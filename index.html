@@ -100,7 +100,7 @@
         <div>
             <label>KDV Detayları</label>
             <table class="kdv-table">
-                <thead><tr style="font-size:0.7rem;color:var(--text-light);"><th>KDV %</th><th>Matrah (₺)</th><th>KDV Tutarı (₺)</th></tr></thead>
+                <thead><tr style="font-size:0.7rem;color:var(--text-light);"><th>KDV %</th><th>Matrah (₺)</th><th>KDV Tutar (₺)</th><th>Brüt (₺)</th></tr></thead>
                 <tbody id="kdv-body"></tbody>
             </table>
         </div>
@@ -115,7 +115,7 @@
             <button class="btn btn-primary" style="width:auto;" onclick="generateExcel()">📊 EXCEL AL</button>
         </div>
         <table class="live-table">
-            <thead><tr><th>Mağaza</th><th>Tarih</th><th>Fiş No</th><th>Masraf</th><th>KDV %</th><th>Matrah</th><th>Toplam</th><th>Sil</th></tr></thead>
+            <thead><tr><th>#</th><th>Mağaza</th><th>Tarih</th><th>Fiş No</th><th>Masraf</th><th>KDV %</th><th>Matrah</th><th>Toplam</th><th>Sil</th></tr></thead>
             <tbody id="live-body"></tbody>
         </table>
     </div>
@@ -258,7 +258,8 @@
             const tr = document.createElement('tr');
             tr.innerHTML = `<td><input type="number" class="i-rate" value="${d.rate}" style="width:60px"></td>
                             <td><input type="text" class="i-matrah" value="${d.matrah}"></td>
-                            <td><input type="text" class="i-amt" value="${d.amount}"></td>`;
+                            <td><input type="text" class="i-amt" value="${d.amount}"></td>
+                            <td><input type="text" class="i-gross" value="${d.gross || ''}"></td>`;
             body.appendChild(tr);
         });
     }
@@ -266,13 +267,14 @@
     function approve() {
         const store = document.getElementById('r-store').value;
         const receipt = document.getElementById('r-receipt').value;
+        const date = document.getElementById('r-date').value;
         const masraf = document.getElementById('r-category').value;
         const rows = document.querySelectorAll('#kdv-body tr');
+        
         if (rows.length === 0) {
-            // KDV detayı yoksa tek satır olarak ekle
             confirmedData.push({
                 store_name: store,
-                date: document.getElementById('r-date').value,
+                date: date,
                 receipt_no: receipt,
                 total_amount: document.getElementById('r-total').value,
                 kdv_rate: '',
@@ -282,15 +284,16 @@
             });
         } else {
             rows.forEach(r => {
+                const rateVal = r.querySelector('.i-rate').value;
                 confirmedData.push({
                     store_name: store,
-                    date: document.getElementById('r-date').value,
+                    date: date,
                     receipt_no: receipt,
-                    total_amount: document.getElementById('r-total').value,
-                    kdv_rate: r.querySelector('.i-rate').value,
+                    total_amount: r.querySelector('.i-gross').value || document.getElementById('r-total').value,
+                    kdv_rate: rateVal,
                     matrah: r.querySelector('.i-matrah').value,
                     kdv_amount: r.querySelector('.i-amt').value,
-                    masraf_turu: masraf
+                    masraf_turu: masraf + (rateVal ? rateVal : '')
                 });
             });
         }
@@ -305,7 +308,8 @@
         confirmedData.slice().reverse().forEach((row, idx) => {
             const tr = document.createElement('tr');
             const realIdx = confirmedData.length - 1 - idx;
-            tr.innerHTML = `<td>${row.store_name || '-'}</td>
+            tr.innerHTML = `<td>${realIdx + 1}</td>
+                            <td>${row.store_name || '-'}</td>
                             <td>${row.date || '-'}</td>
                             <td>${row.receipt_no || '-'}</td>
                             <td>${row.masraf_turu || '-'}</td>
