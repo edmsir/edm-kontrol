@@ -70,7 +70,7 @@ export const handler = async (event) => {
               ]
             }
           ],
-          model: 'groq/compound',
+          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
           response_format: { type: 'json_object' }
         });
 
