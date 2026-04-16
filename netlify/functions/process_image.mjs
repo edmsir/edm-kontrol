@@ -38,18 +38,19 @@ Analyze this receipt image carefully and extract EXACTLY what you see.
 Return a JSON object with these fields:
 - store_name: the merchant/store name (string)
 - date: the date on receipt in DD.MM.YYYY format (string)
-- receipt_no: the receipt/invoice number (string, look for "Fiş No", "No:", "Belge No", "EFT No" etc.)
+- receipt_no: the receipt/invoice number (string). Look for "Fiş No", "No:", or "Belge No". Do NOT confuse this with the Tax ID (V.D. number) which is usually 10 digits. The receipt number is usually 4 to 8 digits long.
 - total_amount: the GRAND TOTAL paid, the biggest total amount on the receipt (number, no currency symbols)
 - masraf_turu: category, ONE of: YEMEK, MARKET, YAKIT, KIRTASİYE, TAMİR, OTOPARK, OTO YIKAMA, HIRDAVAT, DİĞER
-- kdv_rates: array of VAT rate percentages found on the receipt (e.g. [20] or [10, 20] or [1])
+- kdv_details: array of objects representing the VAT breakdown. For EACH VAT rate present on the receipt, provide the 'rate' (number: 1, 10, or 20) and the 'gross_amount' (number: the total portion of the bill that is subject to this specific VAT rate).
 
 RULES:
 - Turkish VAT rates are only: 1, 10, or 20. Never 8 or 18.
 - total_amount is the FINAL TOTAL including VAT (KDV Dahil Toplam / Genel Toplam / Toplam Tutar)
+- If the receipt has items with different VAT rates, sum the item prices per VAT rate to find the gross_amount for each rate.
 - Return ONLY valid JSON, no markdown, no explanation.
 
 Example output:
-{"store_name":"ABC MARKET","date":"15.03.2024","receipt_no":"0042","total_amount":183.33,"masraf_turu":"MARKET","kdv_rates":[20]}`;
+{"store_name":"ABC MARKET","date":"15.03.2024","receipt_no":"0042","total_amount":515.00,"masraf_turu":"MARKET","kdv_details":[{"rate":10,"gross_amount":165.00},{"rate":20,"gross_amount":350.00}]}`;
 
     let lastError = null;
     console.log(`Toplam ${apiKeys.length} anahtar. İşlem başlatılıyor...`);
@@ -81,32 +82,29 @@ Example output:
         const modelResult = JSON.parse(rawContent);
 
         // --- Akıllı KDV Hesaplama ---
-        // Toplam tutarı ve KDV oranlarını kullanarak matrahı kendimiz hesaplıyoruz.
-        // Modele güvenmek yerine matematiksel olarak hesaplıyoruz.
         const totalAmount = parseFloat(String(modelResult.total_amount || 0).replace(',', '.')) || 0;
-        const kdvRates = Array.isArray(modelResult.kdv_rates)
-          ? modelResult.kdv_rates.map(r => parseInt(String(r)) || 0).filter(r => [1, 10, 20].includes(r))
-          : [];
-
         let kdvDetails = [];
 
-        if (totalAmount > 0 && kdvRates.length > 0) {
-          if (kdvRates.length === 1) {
-            // Tek KDV oranı: toplam tutardan hesapla
-            const rate = kdvRates[0];
-            const matrah = Number((totalAmount / (1 + rate / 100)).toFixed(2));
-            const kdvAmt = Number((totalAmount - matrah).toFixed(2));
-            kdvDetails = [{ rate, matrah, amount: kdvAmt, gross: totalAmount }];
-          } else {
-            // Birden fazla KDV oranı: her birini eşit dağıt (model oran listesini verdi)
-            // Kullanıcı formu düzeltebilir
-            const perRate = Number((totalAmount / kdvRates.length).toFixed(2));
-            kdvDetails = kdvRates.map(rate => {
-              const matrah = Number((perRate / (1 + rate / 100)).toFixed(2));
-              const kdvAmt = Number((perRate - matrah).toFixed(2));
-              return { rate, matrah, amount: kdvAmt, gross: perRate };
-            });
-          }
+        if (modelResult.kdv_details && Array.isArray(modelResult.kdv_details)) {
+          kdvDetails = modelResult.kdv_details.map(det => {
+            const rate = parseInt(String(det.rate).replace('%', '').trim()) || 0;
+            const gross = parseFloat(String(det.gross_amount || 0).replace(',', '.')) || 0;
+            
+            if (rate > 0 && gross > 0) {
+              const matrah = Number((gross / (1 + (rate / 100))).toFixed(2));
+              const kdvAmt = Number((gross - matrah).toFixed(2));
+              return { rate, matrah, amount: kdvAmt, gross };
+            }
+            return null;
+          }).filter(Boolean);
+        }
+
+        // Eğer KDV detayı bulamadıysak ama toplam tutar varsa (%20 varsayılan)
+        if (kdvDetails.length === 0 && totalAmount > 0) {
+          const rate = 20; 
+          const matrah = Number((totalAmount / (1 + rate / 100)).toFixed(2));
+          const kdvAmt = Number((totalAmount - matrah).toFixed(2));
+          kdvDetails = [{ rate, matrah, amount: kdvAmt, gross: totalAmount }];
         }
 
         const result = {
