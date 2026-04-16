@@ -50,8 +50,11 @@ export const handler = async (event) => {
     let lastError = null;
 
     // Anahtar Rotasyonu: Her anahtarı sırayla dener
-    for (const key of apiKeys) {
+    console.log(`Toplam ${apiKeys.length} anahtar bulundu. İşlem başlatılıyor...`);
+    
+    for (const [index, key] of apiKeys.entries()) {
       try {
+        console.log(`Deneme ${index + 1}: Anahtar sonu ...${key.slice(-4)}`);
         const groq = new Groq({ apiKey: key });
 
         const chatCompletion = await groq.chat.completions.create({
@@ -67,7 +70,7 @@ export const handler = async (event) => {
               ]
             }
           ],
-          model: 'meta-llama/llama-3.2-11b-vision-preview',
+          model: 'llama-3.2-11b-vision-preview',
           response_format: { type: 'json_object' }
         });
 

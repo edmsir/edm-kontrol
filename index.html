@@ -105,6 +105,23 @@
                    ? '/api' 
                    : '/.netlify/functions';
 
+    function switchMode(mode) {
+        currentMode = mode;
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        event.target.classList.add('active');
+        if(mode === 'camera') {
+            document.getElementById('camera-panel').style.display = 'block';
+            document.getElementById('folder-panel').style.display = 'none';
+            document.getElementById('camera-controls').style.display = 'block';
+        } else {
+            document.getElementById('camera-panel').style.display = 'none';
+            document.getElementById('folder-panel').style.display = 'block';
+            document.getElementById('camera-controls').style.display = 'none';
+        }
+    }
+
+    async function selectFolder() { alert('Klasör modu Netlify üzerinde kısıtlıdır, lütfen Kamera modunu kullanın.'); }
+
     let currentMode = 'camera';
     let confirmedData = JSON.parse(localStorage.getItem('slipx_data') || '[]');
     const video = document.getElementById('video-feed');
