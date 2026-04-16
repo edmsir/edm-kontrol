@@ -1,5 +1,0 @@
-groq
-xlsxwriter
-python-dotenv
-flask
-flask-cors
