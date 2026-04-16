@@ -256,12 +256,34 @@
         body.innerHTML = "";
         (data.kdv_details || []).forEach(d => {
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td><input type="number" class="i-rate" value="${d.rate}" style="width:60px"></td>
-                            <td><input type="text" class="i-matrah" value="${d.matrah}"></td>
+            tr.innerHTML = `<td><input type="number" class="i-rate" value="${d.rate}" style="width:60px" oninput="recalcRow(this)"></td>
+                            <td><input type="text" class="i-matrah" value="${d.matrah}" oninput="recalcFromMatrah(this)"></td>
                             <td><input type="text" class="i-amt" value="${d.amount}"></td>
-                            <td><input type="text" class="i-gross" value="${d.gross || ''}"></td>`;
+                            <td><input type="text" class="i-gross" value="${d.gross || ''}" oninput="recalcRow(this)"></td>`;
             body.appendChild(tr);
         });
+    }
+
+    function recalcRow(el) {
+        const tr = el.closest('tr');
+        const rate = parseFloat(tr.querySelector('.i-rate').value) || 0;
+        const gross = parseFloat(tr.querySelector('.i-gross').value) || 0;
+        if (rate > 0 && gross > 0) {
+            const matrah = gross / (1 + (rate / 100));
+            tr.querySelector('.i-matrah').value = matrah.toFixed(2);
+            tr.querySelector('.i-amt').value = (gross - matrah).toFixed(2);
+        }
+    }
+
+    function recalcFromMatrah(el) {
+        const tr = el.closest('tr');
+        const rate = parseFloat(tr.querySelector('.i-rate').value) || 0;
+        const matrah = parseFloat(tr.querySelector('.i-matrah').value) || 0;
+        if (rate > 0 && matrah > 0) {
+            const kdv = matrah * (rate / 100);
+            tr.querySelector('.i-amt').value = kdv.toFixed(2);
+            tr.querySelector('.i-gross').value = (matrah + kdv).toFixed(2);
+        }
     }
 
     function approve() {

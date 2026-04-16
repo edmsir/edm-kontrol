@@ -29,35 +29,35 @@ export const handler = async (event) => {
 
     console.log(`Görsel boyutu: ${Math.round(base64Part.length / 1024)}KB`);
 
-    // Prompt: Modelden fiş üzerindeki verileri doğrudan okumasını istiyoruz.
-    const prompt = `You are an expert at reading Turkish fiscal receipts (fatura/fiş).
-Analyze this receipt image carefully and extract EXACTLY what you see.
+    // Prompt: Modelden verileri analiz ederek gruplandırmasını istiyoruz.
+    const prompt = `Analyze this Turkish fiscal receipt carefully.
+Follow these steps for accurate results:
+1. List EVERY item price (look for numbers ending with * or in the rightmost column).
+2. Note the VAT rate (%1, %10, or %20) next to each price.
+3. Group these prices by VAT rate and calculate the GROSS SUM for each rate.
+4. From the GROSS SUM, derive the Matrah (Base) and KDV Amount. 
+   - Formula: Matrah = Gross / (1 + Rate/100). KDV = Gross - Matrah.
 
-Return a JSON object with these fields:
-- store_name: the merchant/store name (string)
-- date: the date on receipt in DD.MM.YYYY format (string)
-- receipt_no: the receipt or invoice number (string). 
-    - Look for labels like "FİŞ NO", "FİŞ NUMARASI", "BELGE NO", or "FATURA NO".
-    - For E-ARŞİV or E-FATURA: These numbers are typically 16 characters long, starting with 3 letters followed by the year and then a long sequence (e.g., GIB2026000000001, BYG2026000000123). ALWAYS prioritize these 16-character strings if they exist.
-    - If it's a standard receipt, it's usually a 4-8 digit number found near the top or bottom.
-- total_amount: the GRAND TOTAL paid (number, no currency symbols)
-- masraf_turu: category, ONE of: YEMEK, MARKET, YAKIT, KIRTASİYE, TAMİR, OTOPARK, OTO YIKAMA, HIRDAVAT, DİĞER
-- kdv_details: array of objects. Group items by VAT rate (1, 10, 20). If there are multiple items with SAME rate, SUM their matrah and amount into one object for that rate.
-    - rate: (number: 1, 10, or 20)
-    - amount: (number: total VAT amount for this rate)
-    - matrah: (number: total taxable base for this rate)
-    - gross_amount: (number: total including VAT for this rate)
+Return a JSON object:
+- store_name: Merchant name.
+- date: DD.MM.YYYY.
+- receipt_no: 4-8 digits for standard, 16 chars for e-fatura (e.g. ABC2026...).
+- total_amount: GRAND TOTAL (sum of all items).
+- masraf_turu: ONE of: YEMEK, MARKET, YAKIT, KIRTASİYE, TAMİR, OTOPARK, OTO YIKAMA, HIRDAVAT, DİĞER
+- kdv_details: array of objects (ONE object per unique rate):
+    - rate: (1, 10, or 20)
+    - amount: (number: total KDV for this rate)
+    - matrah: (number: total matrah for this rate)
+    - gross_amount: (number: total gross including VAT for this rate)
 
 RULES:
-- Turkish VAT rates are strictly: 1, 10, or 20. 
-- IMPORTANT: Never use 8% or 18%. These are obsolete. If the receipt looks like 8 or 18, use 10 or 20 respectively.
-- GROUP BY RATE: You MUST produce only ONE object per VAT rate. If there are multiple 10% items, sum them up.
-- DO NOT CALCULATE: Extract and sum the numbers as written.
-- If the receipt has a "KDV DAĞILIMI" section, use those summarized values.
+- NEVER use 8% or 18%. Use 10% or 20%.
+- Do NOT confuse "TOPKDV" (Total Tax) with a specific rate's tax.
+- Prices on receipts are ALMOST ALWAYS VAT-inclusive (Gross).
 - Return ONLY valid JSON.
 
-Example for multi-VAT:
-{"store_name":"XYZ","date":"16.04.2024","receipt_no":"123","total_amount":500.00,"masraf_turu":"MARKET","kdv_details":[{"rate":10,"amount":10.00,"matrah":100.00,"gross_amount":110.00},{"rate":20,"amount":65.00,"matrah":325.00,"gross_amount":390.00}]}`;
+Example:
+{"store_name":"OFİSER","date":"15.04.2026","receipt_no":"0031","total_amount":515.00,"masraf_turu":"KIRTASİYE","kdv_details":[{"rate":10,"amount":15.00,"matrah":150.00,"gross_amount":165.00},{"rate":20,"amount":58.33,"matrah":291.67,"gross_amount":350.00}]}`;
 
     let lastError = null;
     console.log(`Toplam ${apiKeys.length} anahtar. İşlem başlatılıyor...`);
