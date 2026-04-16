@@ -31,15 +31,24 @@ app.post('/api/process_image', async (req, res) => {
 });
 
 app.post('/api/save_excel', async (req, res) => {
-  const event = { httpMethod: 'POST', body: JSON.stringify(req.body) };
-  const result = await saveExcelHandler(event);
-  res.status(result.statusCode).set(result.headers).send(result.body);
+  try {
+    const event = { httpMethod: 'POST', body: JSON.stringify(req.body) };
+    const result = await saveExcelHandler(event);
+    res.status(result.statusCode).set(result.headers).send(result.body);
+  } catch (err) {
+    console.error('CRITICAL SERVER ERROR:', err);
+    res.status(500).send({ error: 'Internal Server Error', details: err.message });
+  }
 });
 
-const PORT = 5000;
+const PORT = 5005;
 app.listen(PORT, () => {
   console.log(`\n==================================================`);
   console.log(`SlipX NODE.JS DEV SERVER`);
   console.log(`Sunucu: http://localhost:${PORT}`);
   console.log(`==================================================\n`);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });

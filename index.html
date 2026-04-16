@@ -74,11 +74,22 @@
         <div class="form-group"><label>Mağaza</label><input type="text" id="r-store"></div>
         <div style="display: flex; gap: 8px;">
             <div class="form-group" style="flex:1"><label>Tarih</label><input type="text" id="r-date"></div>
-            <div class="form-group" style="flex:1"><label>Toplam</label><input type="text" id="r-total"></div>
+            <div class="form-group" style="flex:1"><label>Toplam (₺)</label><input type="number" id="r-total"></div>
+        </div>
+        <div style="display: flex; gap: 8px;">
+            <div class="form-group" style="flex:1"><label>Fiş No</label><input type="text" id="r-receipt"></div>
+            <div class="form-group" style="flex:1"><label>Masraf Türü</label>
+                <select id="r-category" style="padding:10px;border:1px solid var(--border);border-radius:10px;width:100%;">
+                    <option>YEMEK</option><option>MARKET</option><option>YAKIT</option>
+                    <option>KIRTASİYE</option><option>TAMİR</option><option>OTOPARK</option>
+                    <option>OTO YIKAMA</option><option>HIRDAVAT</option><option>DİĞER</option>
+                </select>
+            </div>
         </div>
         <div>
             <label>KDV Detayları</label>
             <table class="kdv-table">
+                <thead><tr style="font-size:0.7rem;color:var(--text-light);"><th>KDV %</th><th>Matrah (₺)</th><th>KDV Tutarı (₺)</th></tr></thead>
                 <tbody id="kdv-body"></tbody>
             </table>
         </div>
@@ -93,7 +104,7 @@
             <button class="btn btn-primary" style="width:auto;" onclick="generateExcel()">📊 EXCEL AL</button>
         </div>
         <table class="live-table">
-            <thead><tr><th>Mağaza</th><th>Tarih</th><th>KDV %</th><th>Matrah</th><th>Toplam</th><th>Sil</th></tr></thead>
+            <thead><tr><th>Mağaza</th><th>Tarih</th><th>Fiş No</th><th>Masraf</th><th>KDV %</th><th>Matrah</th><th>Toplam</th><th>Sil</th></tr></thead>
             <tbody id="live-body"></tbody>
         </table>
     </div>
@@ -102,7 +113,7 @@
 <script>
     // NETLIFY UYUMLU YOL AYARI
     const apiBase = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
-                   ? '/api' 
+                   ? 'http://localhost:5005/api' 
                    : '/.netlify/functions';
 
     function switchMode(mode) {
@@ -152,11 +163,19 @@
         document.getElementById('r-store').value = data.store_name || "";
         document.getElementById('r-date').value = data.date || "";
         document.getElementById('r-total').value = data.total_amount || "";
+        document.getElementById('r-receipt').value = data.receipt_no || "";
+        // Masraf türünü seç
+        const catEl = document.getElementById('r-category');
+        if (data.masraf_turu) {
+            const opts = Array.from(catEl.options);
+            const match = opts.find(o => o.value === data.masraf_turu.toUpperCase());
+            if (match) catEl.value = match.value;
+        }
         const body = document.getElementById('kdv-body');
         body.innerHTML = "";
         (data.kdv_details || []).forEach(d => {
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td><input type="number" class="i-rate" value="${d.rate}"></td>
+            tr.innerHTML = `<td><input type="number" class="i-rate" value="${d.rate}" style="width:60px"></td>
                             <td><input type="text" class="i-matrah" value="${d.matrah}"></td>
                             <td><input type="text" class="i-amt" value="${d.amount}"></td>`;
             body.appendChild(tr);
@@ -165,20 +184,38 @@
 
     function approve() {
         const store = document.getElementById('r-store').value;
+        const receipt = document.getElementById('r-receipt').value;
+        const masraf = document.getElementById('r-category').value;
         const rows = document.querySelectorAll('#kdv-body tr');
-        rows.forEach(r => {
+        if (rows.length === 0) {
+            // KDV detayı yoksa tek satır olarak ekle
             confirmedData.push({
                 store_name: store,
                 date: document.getElementById('r-date').value,
+                receipt_no: receipt,
                 total_amount: document.getElementById('r-total').value,
-                kdv_rate: r.querySelector('.i-rate').value,
-                matrah: r.querySelector('.i-matrah').value,
-                kdv_amount: r.querySelector('.i-amt').value,
-                masraf_turu: "GENEL"
+                kdv_rate: '',
+                matrah: '',
+                kdv_amount: '',
+                masraf_turu: masraf
             });
-        });
+        } else {
+            rows.forEach(r => {
+                confirmedData.push({
+                    store_name: store,
+                    date: document.getElementById('r-date').value,
+                    receipt_no: receipt,
+                    total_amount: document.getElementById('r-total').value,
+                    kdv_rate: r.querySelector('.i-rate').value,
+                    matrah: r.querySelector('.i-matrah').value,
+                    kdv_amount: r.querySelector('.i-amt').value,
+                    masraf_turu: masraf
+                });
+            });
+        }
         localStorage.setItem('slipx_data', JSON.stringify(confirmedData));
         renderLiveTable();
+        alert('✅ Listeye eklendi!');
     }
 
     function renderLiveTable() {
@@ -186,9 +223,15 @@
         body.innerHTML = "";
         confirmedData.slice().reverse().forEach((row, idx) => {
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td>${row.store_name}</td><td>${row.date}</td><td>%${row.kdv_rate}</td>
-                            <td>${row.matrah}</td><td><b>${row.total_amount}</b></td>
-                            <td><button onclick="deleteRow(${confirmedData.length - 1 - idx})">X</button></td>`;
+            const realIdx = confirmedData.length - 1 - idx;
+            tr.innerHTML = `<td>${row.store_name || '-'}</td>
+                            <td>${row.date || '-'}</td>
+                            <td>${row.receipt_no || '-'}</td>
+                            <td>${row.masraf_turu || '-'}</td>
+                            <td>${row.kdv_rate ? '%'+row.kdv_rate : '-'}</td>
+                            <td>${row.matrah ? Number(row.matrah).toFixed(2)+'₺' : '-'}</td>
+                            <td><b>${Number(row.total_amount).toFixed(2)}₺</b></td>
+                            <td><button onclick="deleteRow(${realIdx})" style="background:#ef4444;color:#fff;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;">🗑</button></td>`;
             body.appendChild(tr);
         });
     }
