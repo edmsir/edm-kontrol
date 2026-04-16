@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SlipX Hybrid - Netlify App</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --primary: #6366f1; --primary-hover: #4f46e5; --success: #10b981; --danger: #ef4444; --bg: #f8fafc; --card-bg: #ffffff; --text: #1e293b; --text-light: #64748b; --border: #e2e8f0; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Outfit', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; display: flex; flex-direction: column; min-height: 100vh; overflow-x: hidden; }
+        header { background: #fff; padding: 1rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 100; flex-wrap: wrap; gap: 10px; }
+        .logo-area { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 250px; }
+        .logo-text { font-size: 1.4rem; font-weight: 800; color: var(--primary); letter-spacing: -1px; white-space: nowrap; }
+        .company-title { font-weight: 600; font-size: 0.85rem; color: var(--text-light); border: none; background: transparent; flex: 1; min-width: 150px; }
+        .mode-selector { display: flex; gap: 5px; background: #e2e8f0; padding: 5px; border-radius: 12px; margin: 1rem auto 0; width: calc(100% - 2rem); max-width: 400px; }
+        .mode-btn { flex: 1; padding: 10px; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; transition: all 0.3s; color: var(--text-light); font-size: 0.85rem; }
+        .mode-btn.active { background: #fff; color: var(--primary); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        main { display: flex; flex-direction: row; padding: 1rem; gap: 1rem; max-width: 1600px; margin: 0 auto; width: 100%; }
+        .scan-section { flex: 1.3; display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+        .panel { background: #000; border-radius: 20px; width: 100%; aspect-ratio: 4/3; overflow: hidden; position: relative; box-shadow: 0 10px 15px -5px rgba(0,0,0,0.1); }
+        #video-feed, #image-viewer { width: 100%; height: 100%; object-fit: cover; }
+        .editor-section { flex: 1; background: var(--card-bg); border-radius: 20px; padding: 1.2rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 0.8rem; height: fit-content; position: sticky; top: 100px; }
+        @media (max-width: 900px) { main { flex-direction: column; } .editor-section { position: static; width: 100%; } .panel { aspect-ratio: 1/1; } }
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        label { font-size: 0.7rem; font-weight: 800; color: var(--text-light); }
+        input { padding: 10px; border: 1px solid var(--border); border-radius: 10px; width: 100%; }
+        .kdv-table { width: 100%; border-collapse: collapse; }
+        .live-list-section { padding: 0 1rem 2rem; width: 100%; max-width: 1600px; margin: 0 auto; }
+        .list-card { background: #fff; border-radius: 20px; padding: 1rem; border: 1px solid var(--border); overflow-x: auto; }
+        .live-table { width: 100%; min-width: 600px; border-collapse: collapse; }
+        .btn { border: none; padding: 12px; border-radius: 12px; font-weight: 700; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-primary { background: var(--primary); color: #fff; width: 100%; }
+        .btn-success { background: var(--success); color: #fff; width: 100%; }
+        #loading-overlay { position: absolute; inset: 0; background: rgba(255,255,255,0.8); z-index: 10; display: none; flex-direction: column; align-items: center; justify-content: center; }
+        .spinner { width: 30px; height: 30px; border: 3px solid var(--primary); border-bottom-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        canvas { display: none; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo-area">
+        <div class="logo-text">SlipX Hybrid</div>
+        <input type="text" class="company-title" value="BEY KUMAŞÇILIK TEKSTİL SANAYİ">
+    </div>
+    <div id="status">● Sistem Hazır</div>
+</header>
+
+<div class="mode-selector">
+    <button class="mode-btn active" onclick="switchMode('camera')">📷 KAMERA</button>
+    <button class="mode-btn" onclick="switchMode('folder')">📁 KLASÖR</button>
+</div>
+
+<main>
+    <div class="scan-section">
+        <div class="panel" id="camera-panel">
+            <div id="loading-overlay"><div class="spinner"></div><p>Analiz Ediliyor...</p></div>
+            <video id="video-feed" autoplay playsinline></video>
+        </div>
+        <div class="panel" id="folder-panel" style="display:none;">
+            <img id="image-viewer" src="" style="display:none;">
+            <div id="folder-empty">
+                <button class="btn" style="background:#eee; margin: auto;" onclick="selectFolder()">📂 KLASÖR SEÇ</button>
+            </div>
+        </div>
+        <div id="camera-controls">
+            <button class="btn btn-primary" style="padding: 20px;" onclick="captureImage()">📸 FİŞİ TARA</button>
+        </div>
+    </div>
+
+    <div class="editor-section">
+        <div class="form-group"><label>Mağaza</label><input type="text" id="r-store"></div>
+        <div style="display: flex; gap: 8px;">
+            <div class="form-group" style="flex:1"><label>Tarih</label><input type="text" id="r-date"></div>
+            <div class="form-group" style="flex:1"><label>Toplam</label><input type="text" id="r-total"></div>
+        </div>
+        <div>
+            <label>KDV Detayları</label>
+            <table class="kdv-table">
+                <tbody id="kdv-body"></tbody>
+            </table>
+        </div>
+        <button class="btn btn-success" onclick="approve()">✅ LİSTEYE EKLE</button>
+    </div>
+</main>
+
+<div class="live-list-section">
+    <div class="list-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1rem;">
+            <h3>Canlı Liste</h3>
+            <button class="btn btn-primary" style="width:auto;" onclick="generateExcel()">📊 EXCEL AL</button>
+        </div>
+        <table class="live-table">
+            <thead><tr><th>Mağaza</th><th>Tarih</th><th>KDV %</th><th>Matrah</th><th>Toplam</th><th>Sil</th></tr></thead>
+            <tbody id="live-body"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // NETLIFY UYUMLU YOL AYARI
+    const apiBase = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
+                   ? '/api' 
+                   : '/.netlify/functions';
+
+    let currentMode = 'camera';
+    let confirmedData = JSON.parse(localStorage.getItem('slipx_data') || '[]');
+    const video = document.getElementById('video-feed');
+    const canvas = document.createElement('canvas');
+
+    async function initCamera() {
+        try { const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }); video.srcObject = s; } catch(e) {}
+    }
+
+    async function captureImage() {
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        const img = canvas.toDataURL('image/jpeg', 0.85);
+        document.getElementById('loading-overlay').style.display = 'flex';
+        try {
+            const res = await fetch(`${apiBase}/process_image`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ image: img })
+            });
+            const data = await res.json();
+            populateForm(data);
+        } catch(e) { console.error(e); }
+        document.getElementById('loading-overlay').style.display = 'none';
+    }
+
+    function populateForm(data) {
+        document.getElementById('r-store').value = data.store_name || "";
+        document.getElementById('r-date').value = data.date || "";
+        document.getElementById('r-total').value = data.total_amount || "";
+        const body = document.getElementById('kdv-body');
+        body.innerHTML = "";
+        (data.kdv_details || []).forEach(d => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td><input type="number" class="i-rate" value="${d.rate}"></td>
+                            <td><input type="text" class="i-matrah" value="${d.matrah}"></td>
+                            <td><input type="text" class="i-amt" value="${d.amount}"></td>`;
+            body.appendChild(tr);
+        });
+    }
+
+    function approve() {
+        const store = document.getElementById('r-store').value;
+        const rows = document.querySelectorAll('#kdv-body tr');
+        rows.forEach(r => {
+            confirmedData.push({
+                store_name: store,
+                date: document.getElementById('r-date').value,
+                total_amount: document.getElementById('r-total').value,
+                kdv_rate: r.querySelector('.i-rate').value,
+                matrah: r.querySelector('.i-matrah').value,
+                kdv_amount: r.querySelector('.i-amt').value,
+                masraf_turu: "GENEL"
+            });
+        });
+        localStorage.setItem('slipx_data', JSON.stringify(confirmedData));
+        renderLiveTable();
+    }
+
+    function renderLiveTable() {
+        const body = document.getElementById('live-body');
+        body.innerHTML = "";
+        confirmedData.slice().reverse().forEach((row, idx) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${row.store_name}</td><td>${row.date}</td><td>%${row.kdv_rate}</td>
+                            <td>${row.matrah}</td><td><b>${row.total_amount}</b></td>
+                            <td><button onclick="deleteRow(${confirmedData.length - 1 - idx})">X</button></td>`;
+            body.appendChild(tr);
+        });
+    }
+
+    function deleteRow(idx) { confirmedData.splice(idx, 1); localStorage.setItem('slipx_data', JSON.stringify(confirmedData)); renderLiveTable(); }
+
+    async function generateExcel() {
+        const unvan = document.querySelector('.company-title').value;
+        const res = await fetch(`${apiBase}/save_excel`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ rows: confirmedData, unvan: unvan })
+        });
+        const data = await res.json();
+        const link = document.createElement('a');
+        link.href = 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + data.file;
+        link.download = data.filename;
+        link.click();
+    }
+
+    renderLiveTable(); initCamera();
+</script>
+</body>
+</html>
