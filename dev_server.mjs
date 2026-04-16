@@ -20,9 +20,14 @@ app.use(express.static('.'));
 
 // Netlify Functions Mock for Local Development
 app.post('/api/process_image', async (req, res) => {
-  const event = { httpMethod: 'POST', body: JSON.stringify(req.body) };
-  const result = await processImageHandler(event);
-  res.status(result.statusCode).set(result.headers).send(result.body);
+  try {
+    const event = { httpMethod: 'POST', body: JSON.stringify(req.body) };
+    const result = await processImageHandler(event);
+    res.status(result.statusCode).set(result.headers).send(result.body);
+  } catch (err) {
+    console.error('CRITICAL SERVER ERROR:', err);
+    res.status(500).send({ error: 'Internal Server Error', details: err.message });
+  }
 });
 
 app.post('/api/save_excel', async (req, res) => {
