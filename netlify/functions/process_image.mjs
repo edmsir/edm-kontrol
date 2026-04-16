@@ -33,8 +33,6 @@ export const handler = async (event) => {
       imageData = imageData.split(',')[1];
     }
 
-    const groq = new Groq({ apiKey: apiKeys[0] });
-
     const prompt = `
       Extract the following information from this Turkish receipt and return it as a JSON object. 
       
@@ -49,48 +47,60 @@ export const handler = async (event) => {
       Return ONLY valid JSON.
     `;
 
-    const chatCompletion = await groq.chat.completions.create({
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: prompt },
+    let lastError = null;
+
+    // Anahtar Rotasyonu: Her anahtarı sırayla dener
+    for (const key of apiKeys) {
+      try {
+        const groq = new Groq({ apiKey: key });
+
+        const chatCompletion = await groq.chat.completions.create({
+          messages: [
             {
-              type: 'image_url',
-              image_url: { url: `data:image/jpeg;base64,${imageData}` }
+              role: 'user',
+              content: [
+                { type: 'text', text: prompt },
+                {
+                  type: 'image_url',
+                  image_url: { url: `data:image/jpeg;base64,${imageData}` }
+                }
+              ]
             }
-          ]
-        }
-      ],
-      model: 'meta-llama/llama-3.2-11b-vision-preview',
-      response_format: { type: 'json_object' }
-    });
+          ],
+          model: 'meta-llama/llama-3.2-11b-vision-preview',
+          response_format: { type: 'json_object' }
+        });
 
-    const result = JSON.parse(chatCompletion.choices[0].message.content);
+        const result = JSON.parse(chatCompletion.choices[0].message.content);
 
-    // KDV Hesaplama ve Doğrulama (Python mantığıyla aynı)
-    if (result.kdv_details && Array.isArray(result.kdv_details)) {
-      result.kdv_details = result.kdv_details.map(det => {
-        try {
-          const rate = parseInt(String(det.rate).replace('%', '').trim()) || 0;
-          const gross = parseFloat(String(det.gross_amount).replace(',', '.')) || 0;
-          const matrah = Number((gross / (1 + (rate / 100))).toFixed(2));
-          const kdvAmt = Number((gross - matrah).toFixed(2));
-          return { rate, amount: kdvAmt, matrah, gross };
-        } catch (e) {
-          return null;
+        // KDV Hesaplama ve Doğrulama
+        if (result.kdv_details && Array.isArray(result.kdv_details)) {
+          result.kdv_details = result.kdv_details.map(det => {
+            try {
+              const rate = parseInt(String(det.rate).replace('%', '').trim()) || 0;
+              const gross = parseFloat(String(det.gross_amount).replace(',', '.')) || 0;
+              const matrah = Number((gross / (1 + (rate / 100))).toFixed(2));
+              const kdvAmt = Number((gross - matrah).toFixed(2));
+              return { rate, amount: kdvAmt, matrah, gross };
+            } catch (e) { return null; }
+          }).filter(Boolean);
         }
-      }).filter(Boolean);
+
+        return {
+          statusCode: 200,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+          body: JSON.stringify(result)
+        };
+
+      } catch (err) {
+        console.error(`Sıradaki anahtar deneniyor (Hata: ${err.message})`);
+        lastError = err;
+        continue; // Sonraki anahtara geç
+      }
     }
 
-    return {
-      statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      },
-      body: JSON.stringify(result)
-    };
+    // Eğer tüm anahtarlar başarısız olursa
+    throw new Error(`Tüm API anahtarları denendi ve başarısız oldu. Son hata: ${lastError?.message}`);
 
   } catch (error) {
     console.error('OCR Error:', error);
