@@ -73,7 +73,7 @@ Example for multi-VAT:
               ]
             }
           ],
-          model: 'meta-llama/llama-4-scout-17b-11e-instruct',
+          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
           response_format: { type: 'json_object' },
           max_tokens: 512,
           temperature: 0.1

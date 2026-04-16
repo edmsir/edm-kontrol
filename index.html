@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SlipX Hybrid - Netlify App</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📁</text></svg>">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
         :root { --primary: #6366f1; --primary-hover: #4f46e5; --success: #10b981; --danger: #ef4444; --bg: #f8fafc; --card-bg: #ffffff; --text: #1e293b; --text-light: #64748b; --border: #e2e8f0; }
@@ -59,7 +60,7 @@
             <div id="loading-overlay"><div class="spinner"></div><p>Analiz Ediliyor...</p></div>
             <video id="video-feed" autoplay playsinline></video>
         </div>
-        <div class="panel" id="folder-panel" style="display:none; background: #1e293b; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+        <div class="panel" id="folder-panel" style="display:none; background: #1e293b; color: white; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
             <div id="loading-overlay-folder" style="position: absolute; inset: 0; background: rgba(0,0,0,0.7); z-index: 10; display: none; flex-direction: column; align-items: center; justify-content: center;">
                 <div class="spinner" style="border-color: #fff; border-bottom-color: transparent;"></div>
                 <p>Analiz Ediliyor...</p>
@@ -129,7 +130,8 @@
     function switchMode(mode) {
         currentMode = mode;
         document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-        if (event) event.target.classList.add('active');
+        const activeBtn = document.querySelector(`.mode-btn[onclick*='${mode}']`);
+        if (activeBtn) activeBtn.classList.add('active');
         
         if(mode === 'camera') {
             document.getElementById('camera-panel').style.display = 'block';
